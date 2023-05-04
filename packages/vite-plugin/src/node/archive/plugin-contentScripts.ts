@@ -459,44 +459,47 @@ export const pluginContentScripts: CrxPluginFn = ({ contentScripts = {} }) => {
               return { chunks, assets }
             }
 
-            const getResources = (
-              name: string,
-              sets: Resources = {
-                assets: new Set(),
-                css: new Set(),
-                imports: new Set(),
-              },
-            ): Resources => {
+            const getResources = (name, sets = {
+              assets: new Set(),
+              css: new Set(),
+              imports: new Set()
+            }, visited = new Set()) => {
+              if (visited.has(name)) {
+                return sets;
+              }
+            
+              visited.add(name);
+            
               const {
                 assets = [],
                 css = [],
                 dynamicImports = [],
                 imports = [],
-                file,
-              } = filesByName.get(name) ?? // lookup by output filename
-              viteManifest[name] ?? // lookup by vite manifest import key
-              ({} as ManifestChunk) // if script is OutputAsset
+                file
+              } = filesByName.get(name) ?? viteManifest[name] ?? {};
 
-              const chunk = bundle[file]
-              if (chunk?.type === 'chunk') {
-                const r = getChunkResources(chunk)
-                assets.push(...r.assets)
-                for (const chunk of r.chunks) {
-                  sets.imports.add(chunk)
-                  getResources(chunk, sets)
+              const chunk = bundle[file];
+              if (chunk?.type === "chunk") {
+                const r = getChunkResources(chunk);
+                assets.push(...r.assets);
+                for (const chunk2 of r.chunks) {
+                  sets.imports.add(chunk2);
+                  getResources(chunk2, sets, visited);
                 }
               }
 
-              for (const a of assets) sets.assets.add(a)
-              for (const c of css) sets.css.add(c)
+              for (const a of assets)
+                sets.assets.add(a);
+              for (const c of css)
+                sets.css.add(c);
               for (const key of [...dynamicImports, ...imports]) {
-                const i = viteManifest[key].file
-                sets.imports.add(i)
-                getResources(key, sets)
+                const i = viteManifest[key].file;
+                sets.imports.add(i);
+                getResources(key, sets, visited);
               }
-
-              return sets
-            }
+            
+              return sets;
+            };
 
             /* ---------------- PROCESS SCRIPTS ---------------- */
 
